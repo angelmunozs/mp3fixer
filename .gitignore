@@ -1,0 +1,6 @@
+*.properties
+!*.dist.properties
+.classpath
+.project
+bin
+.settings

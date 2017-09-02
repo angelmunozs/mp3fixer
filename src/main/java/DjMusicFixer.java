@@ -24,6 +24,8 @@ public class DjMusicFixer {
 	private static String propsFileName = "fixer.properties";
 	//	Properties
 	private static Properties fixerProps = new Properties();
+	// Number of files fixed
+	private static int nFixedFiles = 0;
 	
 	/**
 	 * @param args
@@ -37,10 +39,22 @@ public class DjMusicFixer {
 	public static void main(String[] args) throws CannotReadException, IOException, TagException, ReadOnlyFileException, InvalidAudioFrameException, CannotWriteException {
 		// Save properties file name, passed as first parameter of script
 		getProperties(propsFileName);
+		
+		// Get start time
+		long startTime = System.nanoTime();
 				
 		// Fix all files inside folder
 		File sourceFolder = new File(fixerProps.getProperty("SOURCE_FOLDER"));
 		fixFilesInsideFolder(sourceFolder);
+		
+		// Get end time
+		long endTime = System.nanoTime();
+		
+		// Get elapsed time
+		long elapsedMilliSeconds = (endTime - startTime) / 1000000;
+		
+		// Log end
+		CustomLogger.info("Fixed " + nFixedFiles + " files in " + elapsedMilliSeconds + " milliseconds");
 	}
 	
 	/**
@@ -149,11 +163,18 @@ public class DjMusicFixer {
 		// Read file as audio file
 		AudioFile f = AudioFileIO.read(testFile);
 		
+		// Get file name and path
+		String fileName = testFile.getName();
+		String filePath = testFile.getPath();
+		
 		// Get mp3 tags
 		Tag tag = f.getTag();
 		
+		// Logger
+		CustomLogger.debug("Fixing file: " + filePath);
+		
 		// Get artist name and title
-		String fileNameWithoutExtension = testFile.getName().replaceFirst("[.][^.]+$", "");
+		String fileNameWithoutExtension = fileName.replaceFirst("[.][^.]+$", "");
 		String[] fileNameParts = getFileNameParts(fileNameWithoutExtension);
 		String songArtist = getSongArtist(fileNameParts);
 		String songTitle = getSongTitle(fileNameParts);
@@ -161,13 +182,30 @@ public class DjMusicFixer {
 		// Fix the song title
 		String fixedSongTitle = fixSongTitle(songTitle);
 		
-		// Set desired tags
-		tag.setField(FieldKey.ARTIST, songArtist);
-		tag.setField(FieldKey.TITLE, fixedSongTitle);
-		
-		// Set common tags
-		tag.setField(FieldKey.ALBUM, fixerProps.getProperty("ALBUM"));
-		tag.setField(FieldKey.GENRE, fixerProps.getProperty("GENRE"));
+		try {
+			// Set tag 'song title'
+			tag.setField(FieldKey.TITLE, fixedSongTitle);
+		} catch(TagException e) {
+			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'TITLE'");
+		}
+		try {
+			// Set tag 'artist name'
+			tag.setField(FieldKey.ARTIST, songArtist);
+		} catch(TagException e) {
+			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'ARTIST'");
+		}		
+		try {
+			// Set tag 'album name'
+			tag.setField(FieldKey.ALBUM, fixerProps.getProperty("ALBUM"));
+		} catch(TagException e) {
+			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'ALBUM'");
+		}
+		try {
+			// Set tag 'genre'
+			tag.setField(FieldKey.GENRE, fixerProps.getProperty("GENRE"));
+		} catch(TagException e) {
+			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'GENRE'");
+		}
 		
 		// Remove undesired tags
 		if(isSetAsTrue("REMOVE_COMMENT")) {
@@ -186,9 +224,18 @@ public class DjMusicFixer {
 		// Save file tags
 		f.commit();
 		
+		// Increment variable nFixedFiles
+		nFixedFiles++;
+		
 		// Rename file
-		File newFileName = new File(testFile.getPath().replace(fileNameWithoutExtension, songArtist + " - " + fixedSongTitle));
+		File newFileName = new File(filePath.replace(fileNameWithoutExtension, songArtist + " - " + fixedSongTitle));
 		testFile.renameTo(newFileName);
+		
+		// Ending logs
+		CustomLogger.debug("Fixed file:  " + newFileName);
+		
+		// Horizontal separator
+		CustomLogger.separator();
 	}
 	
 	/**

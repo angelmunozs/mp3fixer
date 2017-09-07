@@ -15,6 +15,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,6 +28,8 @@ public class DjMusicFixer {
 	private static Properties fixerProps = new Properties();
 	// Number of files fixed
 	private static int nFixedFiles = 0;
+	// Allowed file extensions
+	private static String[] allowedExtensions = new String[]{"mp3"};
 	
 	/**
 	 * @param args
@@ -54,7 +58,9 @@ public class DjMusicFixer {
 		long elapsedMilliSeconds = (endTime - startTime) / 1000000;
 		
 		// Log end
-		CustomLogger.info("Fixed " + nFixedFiles + " files in " + elapsedMilliSeconds + " milliseconds");
+		if(nFixedFiles > 0) {
+			CustomLogger.info("Fixed " + nFixedFiles + " files in " + elapsedMilliSeconds + " milliseconds");
+		}
 	}
 	
 	/**
@@ -65,6 +71,9 @@ public class DjMusicFixer {
 		// Initialize variable fixedSongTitle
 		String fixedSongTitle = songTitle;
 		
+		// Remove everything after parentheses
+		fixedSongTitle = fixedSongTitle.split("\\)")[0] + ")";
+
 		// Remove everything between square brackets
 		fixedSongTitle = fixedSongTitle.replaceAll("(\\[)(.*?)(\\])", "");
 		
@@ -95,7 +104,7 @@ public class DjMusicFixer {
 	 */
 	public static String[] getFileNameParts(String fileName) {
 		// Split the file name by space(s) - hyphen - space(s)
-		return fileName.split("[\\s]+\-[\\s]+");
+		return fileName.split("[\\s]+-[\\s]+");
 	}
 	
 	/**
@@ -113,7 +122,7 @@ public class DjMusicFixer {
 	 */
 	public static String getSongTitle(String[] fileNameParts) {
 		// Return rest of the array as song title
-		return fileNameParts.join("-").replace(fileNameParts[0], "");
+		return String.join("-", fileNameParts).replace(fileNameParts[0] + "-", "");
 	}
 	
 	/**
@@ -127,13 +136,17 @@ public class DjMusicFixer {
 	 * @throws CannotReadException 
 	 */
 	public static void fixFilesInsideFolder(final File folderName) throws KeyNotFoundException, CannotWriteException, CannotReadException, IOException, TagException, ReadOnlyFileException, InvalidAudioFrameException {
-	    for (final File fileEntry : folderName.listFiles()) {
-	        if (fileEntry.isDirectory()) {
-	        	fixFilesInsideFolder(fileEntry);
-	        } else {
-	            fixFile(fileEntry);
-	        }
-	    }
+		if (folderName.exists() && folderName.isDirectory()) {
+			for (final File fileEntry : folderName.listFiles()) {
+		        if (fileEntry.isDirectory()) {
+		        	fixFilesInsideFolder(fileEntry);
+		        } else {
+		            fixFile(fileEntry);
+		        }
+		    }
+		} else {
+			CustomLogger.error("Folder doesn\'t exist: " + folderName.getPath());
+		}
 	}
 	
 	/**
@@ -166,6 +179,15 @@ public class DjMusicFixer {
 		// Get file name and path
 		String fileName = testFile.getName();
 		String filePath = testFile.getPath();
+
+		// Get file extension
+		String[] splittedFileName = fileName.split("\\.");
+		String fileExtension = splittedFileName[splittedFileName.length - 1];
+
+		// Skip if not a valid extension
+		if(!isValidAudioExtension(fileExtension)) {
+			return;
+		}
 		
 		// Get mp3 tags
 		Tag tag = f.getTag();
@@ -236,6 +258,14 @@ public class DjMusicFixer {
 		
 		// Horizontal separator
 		CustomLogger.separator();
+	}
+	
+	/**
+	 * @param fileExtension
+	 * @return
+	 */
+	public static boolean isValidAudioExtension(String fileExtension) {
+		return Arrays.asList(allowedExtensions).contains(fileExtension);
 	}
 	
 	/**

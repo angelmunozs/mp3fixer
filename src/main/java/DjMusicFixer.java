@@ -94,8 +94,8 @@ public class DjMusicFixer {
 	 * @return The artist name
 	 */
 	public static String[] getFileNameParts(String fileName) {
-		// Split the file name by hyphen
-		return fileName.split("[\\s]*[-]+[\\s]*");
+		// Split the file name by space(s) - hyphen - space(s)
+		return fileName.split("[\\s]+\-[\\s]+");
 	}
 	
 	/**
@@ -112,8 +112,8 @@ public class DjMusicFixer {
 	 * @return The song title
 	 */
 	public static String getSongTitle(String[] fileNameParts) {
-		// Return second part of array as song title
-		return fileNameParts[1];
+		// Return rest of the array as song title
+		return fileNameParts.join("-").replace(fileNameParts[0], "");
 	}
 	
 	/**

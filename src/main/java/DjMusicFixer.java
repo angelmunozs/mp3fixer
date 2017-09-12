@@ -188,7 +188,7 @@ public class DjMusicFixer {
 		if(!isValidAudioExtension(fileExtension)) {
 			return;
 		}
-		
+
 		// Get mp3 tags
 		Tag tag = f.getTag();
 		
@@ -203,6 +203,13 @@ public class DjMusicFixer {
 		
 		// Fix the song title
 		String fixedSongTitle = fixSongTitle(songTitle);
+
+		// Get the image search URL
+		String artworkSearchUrl = "";
+		if(isSetAsTrue("SET_BEATPORT_ARTWORK")) {
+			GoogleImageSearch imgSearch = new GoogleImageSearch(fixedSongTitle, "beatport.com", 500, 500);
+			artworkSearchUrl = imgSearch.buildImgeSearchQuery();
+		}
 		
 		try {
 			// Set tag 'song title'
@@ -227,6 +234,12 @@ public class DjMusicFixer {
 			tag.setField(FieldKey.GENRE, fixerProps.getProperty("GENRE"));
 		} catch(TagException e) {
 			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'GENRE'");
+		}
+		try {
+			// Set tag 'genre'
+			tag.setField(FieldKey.ALBUM_ARTIST, fixerProps.getProperty("ARTIST"));
+		} catch(TagException e) {
+			CustomLogger.error("File error:  " + filePath + ": unable to write tag 'ALBUM_ARTIST'");
 		}
 		
 		// Remove undesired tags

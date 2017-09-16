@@ -10,16 +10,26 @@ import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.KeyNotFoundException;
 import org.jaudiotagger.tag.Tag;
 import org.jaudiotagger.tag.TagException;
+import org.jaudiotagger.tag.images.Artwork;
 
+import java.awt.Image;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 public class DjMusicFixer {
 	//	Properties file name
@@ -203,13 +213,6 @@ public class DjMusicFixer {
 		
 		// Fix the song title
 		String fixedSongTitle = fixSongTitle(songTitle);
-
-		// Get the image search URL
-		String artworkSearchUrl = "";
-		if(isSetAsTrue("SET_BEATPORT_ARTWORK")) {
-			GoogleImageSearch imgSearch = new GoogleImageSearch(fixedSongTitle, "beatport.com", 500, 500);
-			artworkSearchUrl = imgSearch.buildImgeSearchQuery();
-		}
 		
 		try {
 			// Set tag 'song title'
@@ -256,6 +259,14 @@ public class DjMusicFixer {
 			tag.deleteField(FieldKey.COVER_ART);
 		}
 		
+		// Get the artwork from Beatport
+		if(isSetAsTrue("SET_BEATPORT_ARTWORK")) {
+			// Search artwork in Google images, restricted to Beatport.com
+			Image artworkImage = getArtwork(fixedSongTitle);
+			// Set tag 'artwork'
+			// TODO
+		}
+		
 		// Save file tags
 		f.commit();
 		
@@ -287,5 +298,80 @@ public class DjMusicFixer {
 	 */
 	public static boolean isSetAsTrue(String propName) {
 		return fixerProps.getProperty(propName).equals("true");
+	}
+	
+	/**
+	 * Search an image on Google and return the image object.
+	 * 
+	 * @param imageURL The image search URL.
+	 * @return The saved image URL.
+	 * @throws IOException 
+	 */
+	public static Image getArtwork(String searchTerms) throws IOException {
+		// Initialize object GoogleImageSearch
+		GoogleImageSearch imgSearch = new GoogleImageSearch(searchTerms, "beatport.com", 500, 500);
+		// Build the URL
+		String searchUrl = imgSearch.buildImgeSearchQuery();
+		// Get the response
+		String imageSearchResponse = getResponse(searchUrl);
+		// Get the image URL
+		String imageUrl = getResponseProperty(imageSearchResponse, "link");
+		// Get the found image
+		Image artwork = readImageFromUrl(imageUrl);
+		// Return the found image
+		return artwork;
+	}
+	
+	/**
+	 * Get a property from a JSON-like String by matching the String
+	 * 
+	 * @param responseString
+	 * @param propertyName
+	 * @return
+	 */
+	public static String getResponseProperty(String responseString, String propertyName) {
+		return responseString.split("\"" + propertyName + "\"[ ]*:[ ]*\"")[1].split("\"")[0];
+	}
+	
+	/**
+	 * HTTP GET request.
+	 * 
+	 * @param url The URL to send the request.
+	 * @return The response, as String.
+	 * @throws IOException
+	 */
+	public static String getResponse(String url) throws IOException {
+		// Create URL
+		URL obj = new URL(url);
+		// Open connection
+		HttpURLConnection con = (HttpURLConnection) obj.openConnection();
+		// Read response
+		BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+		String inputLine;
+		StringBuffer response = new StringBuffer();
+		// Append every line to string
+		while ((inputLine = in.readLine()) != null) {
+			response.append(inputLine);
+		}
+		// Close buffered reader
+		in.close();
+		// Return the response
+		return response.toString();
+	}
+	
+	/**
+	 * Read an image from URL.
+	 * 
+	 * @param url The URL of the image to read.
+	 * @return The image object.
+	 * @throws IOException
+	 */
+	public static Image readImageFromUrl(String url) throws IOException {
+		// Build the URL
+		URL imageUrl = new URL(url);
+		// Read image from the URL
+		Image image = ImageIO.read(imageUrl);
+		// Return the read image
+		return image;
 	}
 }
